@@ -12,24 +12,9 @@
     <form method="POST" action="result.php">
         <?php
         $filename = "questions.txt";
-        if (file_exists($filename)) {
-            $questions = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            $current_question = [];
-            $question_number = 0;
+        $question_number = 0;
 
-            foreach ($questions as $line) {
-                if (strpos($line, "ANSWER:") === 0) {
-                    $current_question[] = $line; // Thêm dòng chứa đáp án
-                    displayQuestion($current_question, ++$question_number);
-                    $current_question = []; // Reset câu hỏi
-                } elseif (trim($line) !== "") {
-                    $current_question[] = $line;
-                }
-            }
-        } else {
-            echo "<div class='alert alert-danger'>File câu hỏi không tồn tại.</div>";
-        }
-
+        // Hàm hiển thị câu hỏi
         function displayQuestion($question, $number)
         {
             echo "<div class='card mb-4'>";
@@ -45,6 +30,57 @@
             echo "</div>";
             echo "</div>";
         }
+
+        // Hiển thị câu hỏi từ file
+        if (file_exists($filename)) {
+            $questions = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $current_question = [];
+            foreach ($questions as $line) {
+                if (strpos($line, "ANSWER:") === 0) {
+                    $current_question[] = $line;
+                    displayQuestion($current_question, ++$question_number);
+                    $current_question = [];
+                } elseif (trim($line) !== "") {
+                    $current_question[] = $line;
+                }
+            }
+        } else {
+            echo "<div class='alert alert-danger'>File câu hỏi không tồn tại.</div>";
+        }
+
+        // Kết nối cơ sở dữ liệu
+        $servername = "localhost";
+        $username = "root";
+        $password = "";
+        $dbname = "quiz_app";
+
+        $conn = new mysqli($servername, $username, $password, $dbname);
+
+        if ($conn->connect_error) {
+            die("<div class='alert alert-danger'>Kết nối cơ sở dữ liệu thất bại: " . $conn->connect_error . "</div>");
+        }
+
+        // Lấy câu hỏi từ cơ sở dữ liệu
+        $sql = "SELECT * FROM questions";
+        $result = $conn->query($sql);
+
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $question = [
+                    $row['question'],
+                    "A. " . $row['answer_A'],
+                    "B. " . $row['answer_B'],
+                    "C. " . $row['answer_C'],
+                    "D. " . $row['answer_D'],
+                    "ANSWER: " . $row['correct_answer']
+                ];
+                displayQuestion($question, ++$question_number);
+            }
+        } else {
+            echo "<div class='alert alert-warning'>Không có câu hỏi trong cơ sở dữ liệu.</div>";
+        }
+
+        $conn->close();
         ?>
         <button type="submit" class="btn btn-primary">Nộp bài</button>
     </form>

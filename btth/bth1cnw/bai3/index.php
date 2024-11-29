@@ -1,9 +1,22 @@
 <?php
+// Thông tin kết nối cơ sở dữ liệu
+$servername = "localhost";
+$username = "root"; // Thay bằng username thực tế nếu khác
+$password = ""; // Thay bằng mật khẩu thực tế nếu có
+$dbname = "student_db";
+
+// Kết nối cơ sở dữ liệu
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Kiểm tra kết nối
+if ($conn->connect_error) {
+    die("Kết nối cơ sở dữ liệu thất bại: " . $conn->connect_error);
+}
+
 // Đường dẫn tới file CSV
-$filename =  "KTPM3_Danh_sach_diem_danh.csv";
+$filename = "KTPM3_Danh_sach_diem_danh.csv";
 
-
-// Mảng chứa dữ liệu sinh viên
+// Mảng chứa dữ liệu sinh viên (nếu cần xử lý thêm)
 $sinhvien = [];
 
 // Kiểm tra nếu file tồn tại
@@ -20,9 +33,15 @@ if (file_exists($filename)) {
 
         // Đọc từng dòng dữ liệu
         while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-            // Kiểm tra số lượng cột dữ liệu có khớp với tiêu đề không
+            // Chỉ xử lý khi số cột khớp
             if (count($data) === count($headers)) {
                 $sinhvien[] = array_combine($headers, $data);
+
+                // Thêm vào cơ sở dữ liệu
+                $stmt = $conn->prepare("INSERT INTO students (username, password, lastname, firstname, city, email, course1) 
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssssss", $data[0], $data[1], $data[2], $data[3], $data[4], $data[5], $data[6]);
+                $stmt->execute();
             }
         }
 
@@ -31,8 +50,11 @@ if (file_exists($filename)) {
 } else {
     die("File $filename không tồn tại!");
 }
-?>
 
+// Lấy danh sách sinh viên từ cơ sở dữ liệu
+$sql = "SELECT * FROM students";
+$result = $conn->query($sql);
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -59,20 +81,19 @@ if (file_exists($filename)) {
                 </tr>
             </thead>
             <tbody>
-                <?php
-                if (!empty($sinhvien)):
-                    foreach ($sinhvien as $sv): ?>
+                <?php if ($result && $result->num_rows > 0): ?>
+                    <?php while ($row = $result->fetch_assoc()): ?>
                         <tr>
-                            <td><?php echo $sv['username'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['password'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['lastname'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['firstname'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['city'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['email'] ?? 'N/A'; ?></td>
-                            <td><?php echo $sv['course1'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['username'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['password'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['lastname'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['firstname'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['city'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['email'] ?? 'N/A'; ?></td>
+                            <td><?php echo $row['course1'] ?? 'N/A'; ?></td>
                         </tr>
-                    <?php endforeach;
-                else: ?>
+                    <?php endwhile; ?>
+                <?php else: ?>
                     <tr>
                         <td colspan="7" class="text-center">Không có dữ liệu!</td>
                     </tr>
@@ -84,3 +105,8 @@ if (file_exists($filename)) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+<?php
+// Đóng kết nối
+$conn->close();
+?>
